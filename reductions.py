@@ -16,39 +16,45 @@ def scatter_reduce_with(func, target, value, index, active=True):
     print(f"{n_target=}")
 
     current_scatter = dr.zeros(mi.UInt, n_target)
-    processed_values = dr.full(mi.Bool, False, n_value) | ~mi.Bool(active)
-    i = 0
+    queued_values = dr.arange(mi.UInt, n_value)
 
-    while not dr.all(processed_values):
+    while len(queued_values) > 0:
+        """
+        First we scatter into the `current_scatter` array.
+        For every double index, a random element is selected
+        """
+
+        target_idx = dr.gather(mi.UInt, index, queued_values)
+        lane_idx = dr.gather(mi.UInt, dr.arange(mi.UInt, n_value), queued_values)
         dr.scatter(
-            current_scatter, dr.arange(mi.UInt, n_value), index, ~processed_values
+            current_scatter,
+            lane_idx,
+            dr.gather(mi.UInt, index, queued_values),
         )
 
-        active_lane = (
-            dr.eq(
-                dr.arange(mi.UInt, n_value),
-                dr.gather(mi.UInt, current_scatter, index),
-            )
-            & ~processed_values
-        )
+        """
+        We now get the selected values for scattering in this loop iteration
+        """
+        current = dr.eq(dr.gather(mi.UInt, current_scatter, target_idx), lane_idx)
 
-        processed_values |= active_lane
+        current_idx = dr.gather(mi.UInt, queued_values, dr.compress(current))
+        # print(f"{current_idx=}")
 
-        lane_idx = dr.compress(active_lane)
+        queued_values = dr.gather(mi.UInt, queued_values, dr.compress(~current))
+        # print(f"{queued_values=}")
 
-        target_idx = dr.gather(mi.UInt, index, lane_idx)
+        target_idx = dr.gather(mi.UInt, index, current_idx)
 
         a = dr.gather(type(target), target, target_idx)
-        b = dr.gather(type(value), value, lane_idx)
+        b = dr.gather(type(value), value, current_idx)
         res = func(a, b)
         dr.scatter(target, res, target_idx)
-        # dr.eval(target)
 
 
 if __name__ == "__main__":
     target = dr.zeros(mi.Float, 10)
-    index = dr.arange(mi.UInt, 20) // 2
-    value = dr.ones(mi.Float, 20)
+    index = dr.arange(mi.UInt, 25) % 10
+    value = dr.ones(mi.Float, 25)
 
     scatter_reduce_with(lambda a, b: a + b, target, value, index)
     print(f"{target=}")
