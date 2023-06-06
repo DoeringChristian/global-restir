@@ -10,10 +10,12 @@ if __name__ == "__main__":
 
 
 def scatter_reduce_with(func, target, value, index, active=True):
-    n_value = dr.shape(value)[-1]
-    n_target = dr.shape(target)[-1]
-    print(f"{n_value=}")
-    print(f"{n_target=}")
+    # n_value = dr.shape(value)[-1]
+    # n_target = dr.shape(target)[-1]
+    n_value = dr.width(value)
+    n_target = dr.width(target)
+    # print(f"{n_value=}")
+    # print(f"{n_target=}")
 
     current_scatter = dr.zeros(mi.UInt, n_target)
     queued_values = dr.arange(mi.UInt, n_value)

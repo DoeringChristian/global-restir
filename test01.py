@@ -10,6 +10,7 @@ if __name__ == "__main__":
     # dr.set_log_level(dr.LogLevel.Trace)
 
 import restir
+import reductions
 
 
 def mis_weight(pdf_a: mi.Float, pdf_b: mi.Float) -> mi.Float:
@@ -207,16 +208,32 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
         snew.Li = Li
         snew.wo = wo
 
-        R = dr.gather(
-            restir.Reservoir, self.temporal, reservoir_idx, active
-        )  # type: restir.Reservoir
+        # R = dr.gather(
+        #     restir.Reservoir, self.temporal, reservoir_idx, active
+        # )  # type: restir.Reservoir
 
-        R.update(sampler, snew, w, active)
-        phat = p_hat(R.z.Li)
-        R.W = dr.select(dr.eq(phat * R.M, 0), 0, R.w / (R.M * phat))
+        # R.update(sampler, snew, w, active)
+        # phat = p_hat(R.z.Li)
+        # R.W = dr.select(dr.eq(phat * R.M, 0), 0, R.w / (R.M * phat))
 
         # TODO: reduce/random
-        dr.scatter(self.temporal, R, reservoir_idx, active)
+
+        # dr.scatter(self.temporal, R, reservoir_idx, active)
+
+        def update(a: restir.Reservoir, b: restir.SampleUpdate) -> restir.Reservoir:
+            a.update(b.r, b.s, b.w)
+            phat = p_hat(a.z.Li)
+            a.W = dr.select(dr.eq(phat * a.M, 0), 0, a.w / (a.M * phat))
+            return a
+
+        sample_update = restir.SampleUpdate()
+        sample_update.s = snew
+        sample_update.w = w
+        sample_update.r = sampler.next_1d()
+
+        reductions.scatter_reduce_with(
+            update, self.temporal, sample_update, reservoir_idx, active
+        )
 
         R = dr.gather(
             restir.Reservoir, self.temporal, reservoir_idx, active

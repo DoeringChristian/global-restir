@@ -35,7 +35,7 @@ class Reservoir:
 
     def update(
         self,
-        sampler: mi.Sampler,
+        sample: mi.Float,
         snew: Sample,
         wnew: mi.Float,
         active: mi.Bool = True,
@@ -43,10 +43,23 @@ class Reservoir:
         active = mi.Bool(active)
         self.w += dr.select(active, wnew, 0)
         self.M += dr.select(active, 1, 0)
-        self.z = dr.select(active & (sampler.next_1d() < wnew / self.w), snew, self.z)
+        self.z = dr.select(active & (sample < wnew / self.w), snew, self.z)
 
     def merge(self, sampler: mi.Sampler, r: "Reservoir", p, active: mi.Bool = True):
         active = mi.Bool(active)
         M0 = self.M
         self.update(sampler, r.z, p * r.W * r.M, active)
         self.M = dr.select(active, M0 + r.M, M0)
+
+
+@dataclass
+@drjitstruct
+class SampleUpdate:
+    s: Sample
+    r: mi.Float
+    w: mi.Float
+
+    def __init__(self):
+        self.s = Sample()
+        self.r = mi.Float()
+        self.w = mi.Float()
