@@ -40,15 +40,16 @@ def scatter_reduce_with(func, target, value, index, active=True):
         current = dr.eq(dr.gather(mi.UInt, current_scatter, target_idx), lane_idx)
 
         current_idx = dr.gather(mi.UInt, queued_values, dr.compress(current))
-        # print(f"{current_idx=}")
 
         queued_values = dr.gather(mi.UInt, queued_values, dr.compress(~current))
-        # print(f"{queued_values=}")
 
         target_idx = dr.gather(mi.UInt, index, current_idx)
 
         a = dr.gather(type(target), target, target_idx)
         b = dr.gather(type(value), value, current_idx)
+        """
+        After gathering the target and values of the current lanes we compute the result
+        """
         res = func(a, b)
         dr.scatter(target, res, target_idx)
 
