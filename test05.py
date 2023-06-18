@@ -71,7 +71,7 @@ class RestirReservoir:
 class GReSTIRIntegrator(mi.SamplingIntegrator):
     search_radius = 0.1
     angle_threshold = 25 * dr.pi / 180
-    temporal_M_max = 10000
+    temporal_M_max = 500
 
     def __init__(self):
         self.max_depth = 8
