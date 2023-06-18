@@ -69,9 +69,9 @@ class RestirReservoir:
 
 
 class GReSTIRIntegrator(mi.SamplingIntegrator):
-    dist_threshold = 0.05
+    search_radius = 0.1
     angle_threshold = 25 * dr.pi / 180
-    temporal_M_max = 1000
+    temporal_M_max = 10000
 
     def __init__(self):
         self.max_depth = 8
@@ -81,9 +81,6 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
 
     def similar(self, s1: RestirSample, s2: RestirSample) -> mi.Bool:
         similar = mi.Bool(True)
-        dist = dr.norm(s1.x0 - s2.x0)
-        similar &= dist < self.dist_threshold
-        # similar &= self.grid.same_cell(s1.x0, s2.x0)
         similar &= dr.dot(s1.n0, s2.n0) > dr.cos(self.angle_threshold)
 
         return similar
@@ -331,7 +328,7 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
         for i in range(10):
             # offset = mi.warp.square_to_uniform_disk(sampler.next_1d()) * 0.1
             offset = (
-                mi.warp.square_to_std_normal(sampler.next_1d()) * self.dist_threshold
+                mi.warp.square_to_std_normal(sampler.next_1d()) * self.search_radius
             )
             # offset = mi.warp.square_to_tent(sampler.next_2d()) * 0.01
             p = si.p + si.to_world(mi.Point3f(offset.x, offset.y, 0))
@@ -343,12 +340,19 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
             index_in_cell = mi.UInt(dr.floor(sampler.next_1d() * cell_size))
             reservoir_idx = self.grid.sample_idx_in_cell(cell, index_in_cell)
 
-            R = dr.gather(
+            Rn = dr.gather(
                 RestirReservoir, self.reservoirs, reservoir_idx
             )  # type: RestirReservoir
-            similar = self.similar(R.z, S)
+            similar = self.similar(Rn.z, S)
 
-            Rnew.merge(sampler, R, p_hat(R.z.Li), similar)
+            shadowed = scene.ray_test(si.spawn_ray_to(Rn.z.x1))
+
+            Rnew.merge(
+                sampler,
+                Rn,
+                p_hat(Rn.z.Li) * dr.select(~shadowed & similar, 1, 0),
+                similar,
+            )
 
         phat = p_hat(Rnew.z.Li)
         Rnew.W = dr.select(phat * Rnew.M > 0, Rnew.w / (Rnew.M * phat), 0)
