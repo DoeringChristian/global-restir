@@ -69,9 +69,9 @@ class RestirReservoir:
 
 
 class GReSTIRIntegrator(mi.SamplingIntegrator):
-    dist_threshold = 0.02
+    dist_threshold = 0.05
     angle_threshold = 25 * dr.pi / 180
-    temporal_M_max = 30
+    temporal_M_max = 1000
 
     def __init__(self):
         self.max_depth = 8
@@ -370,7 +370,7 @@ if __name__ == "__main__":
     scene["sensor"]["film"]["height"] = 1024
     scene["sensor"]["film"]["rfilter"] = mi.load_dict({"type": "box"})
     scene = mi.load_dict(scene)  # type: mi.Scene
-    scene = mi.load_file("./data/scenes/staircase/scene.xml")
+    scene = mi.load_file("./data/scenes/living-room-3/scene.xml")
 
     integrator = GReSTIRIntegrator()
     print("Creating Reservoir:")
