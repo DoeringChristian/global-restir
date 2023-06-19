@@ -46,9 +46,6 @@ class HashGrid:
         self.bbmax = dr.maximum(
             dr.max(sample.x), dr.maximum(dr.max(sample.y), dr.max(sample.z))
         )
-        self.bbmax = dr.maximum(
-            dr.max(sample.x), dr.maximum(dr.max(sample.y), dr.max(sample.z))
-        )
 
         from prefix_sum import prefix_sum
 

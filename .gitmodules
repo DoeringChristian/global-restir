@@ -1,0 +1,3 @@
+[submodule "hashgrid"]
+	path = hashgrid
+	url = https://github.com/DoeringChristian/hashgrid.git
