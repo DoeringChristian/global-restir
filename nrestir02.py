@@ -139,7 +139,7 @@ class NRField(nn.Module):
 class GReSTIRIntegrator(mi.SamplingIntegrator):
     search_radius = 0.1
     angle_threshold = 25 * dr.pi / 180
-    temporal_M_max = 500
+    temporal_M_max = 20
 
     def __init__(self, model: nn.Model):
         super().__init__(mi.Properties())
@@ -479,14 +479,14 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
 
     def sample_mlp(self, scene: mi.Scene, si: mi.SurfaceInteraction3f, mode="drjit"):
         with dr.suspend_grad():
-            # Le = si.emitter(scene).eval(si)
+            Le = si.emitter(scene).eval(si)
 
             out = self.model(si)
 
         if mode == "drjit":
-            return mi.Spectrum(out)
+            return mi.Spectrum(out) + Le
         elif mode == "torch":
-            return out
+            return out + Le.torch()
 
     def train(self, scene: mi.Scene, steps: int, debug=False):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
@@ -496,9 +496,11 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
         self.model.train()
         for step in tqdm_iterator:
             # if step % 100 == 0:
-            #     self.create_reservoirs(scene, self.n_reservoirs)
+            # self.reservoirs.M = dr.zeros(mi.UInt, self.n_reservoirs)
+            # self.create_reservoirs(scene, 1_000_000)
             with dr.suspend_grad():
-                self.temporal_resampling(scene, step)
+                self.temporal_resampling(scene, self.n)
+                self.n += 1
 
             optimizer.zero_grad()
 
@@ -546,7 +548,7 @@ if __name__ == "__main__":
     restir = mi.render(scene, integrator=integrator, spp=1, seed=0)
     mi.util.write_bitmap("out/restir.png", restir)
 
-    ref = mi.render(scene, spp=8)
+    ref = mi.render(scene, spp=256)
     mi.util.write_bitmap("out/ref.png", ref)
 
     fig, ax = plt.subplots(2, 2, figsize=(10, 10))
