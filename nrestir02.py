@@ -537,7 +537,7 @@ if __name__ == "__main__":
     field = NRField(scene, n_hidden=3, width=256)
     integrator = GReSTIRIntegrator(field)
     print("Creating Reservoir:")
-    integrator.create_reservoirs(scene, 1_000_000)
+    integrator.create_reservoirs(scene, 1_000_000, 100)
 
     integrator.train(scene, 1000)
 
