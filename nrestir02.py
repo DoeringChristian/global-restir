@@ -159,7 +159,7 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
 
         return similar
 
-    def create_reservoirs(self, scene: mi.Scene, n: int):
+    def create_reservoirs(self, scene: mi.Scene, n: int, resolution: int = 100):
         sampler = mi.load_dict({"type": "independent"})  # type: mi.Sampler
 
         sampler.seed(0, n)
@@ -180,8 +180,9 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
         self.reservoirs = dr.zeros(RestirReservoir, n)  # type: RestirReservoir
         self.reservoirs.z.x0 = ps.p
         self.reservoirs.z.n0 = ps.n
-        self.grid = HashGrid(ps.p, 100, n)
+        self.grid = HashGrid(ps.p, resolution, n)
         self.n_reservoirs = n
+        self.resolution = resolution
 
     def sample_si(
         self, scene: mi.Scene, sampler: mi.Sampler
@@ -359,7 +360,8 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
             si.spawn_ray(si.to_world(wo))
         )  # type: mi.SurfaceInteraction3f
 
-        Li = self.sample_ray(scene, sampler, si.spawn_ray(si.to_world(wo)))
+        Li = self.sample_mlp(scene, si1, mode="drjit")
+        # Li = self.sample_ray(scene, sampler, si.spawn_ray(si.to_world(wo)))
 
         sample = dr.zeros(RestirSample)  # type: RestirSample
         sample.Li = Li
@@ -466,8 +468,8 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
 
             return mi.Color3f(lhs), True, []
         elif self.render_mode == "restir":
-            self.temporal_resampling(scene, self.n)
-            self.n += 1
+            # self.temporal_resampling(scene, self.n)
+            # self.n += 1
 
             si = scene.ray_intersect(ray)
 
@@ -477,7 +479,7 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
 
     def sample_mlp(self, scene: mi.Scene, si: mi.SurfaceInteraction3f, mode="drjit"):
         with dr.suspend_grad():
-            Le = si.emitter(scene).eval(si)
+            # Le = si.emitter(scene).eval(si)
 
             out = self.model(si)
 
@@ -518,13 +520,14 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
             self.losses.append(loss.item())
 
         self.model.eval()
+        # torch.cuda.empty_cache()
 
 
 if __name__ == "__main__":
     torch.manual_seed(0)
     scene = mi.cornell_box()
-    scene["sensor"]["film"]["width"] = 1024
-    scene["sensor"]["film"]["height"] = 1024
+    scene["sensor"]["film"]["width"] = 256
+    scene["sensor"]["film"]["height"] = 256
     scene["sensor"]["film"]["rfilter"] = mi.load_dict({"type": "box"})
     scene = mi.load_dict(scene)  # type: mi.Scene
     # scene = mi.load_file("./data/scenes/living-room-3/scene.xml")
@@ -534,7 +537,7 @@ if __name__ == "__main__":
     print("Creating Reservoir:")
     integrator.create_reservoirs(scene, 1_000_000)
 
-    integrator.train(scene, 1000, debug=True)
+    integrator.train(scene, 1000)
 
     nerad = mi.render(scene, integrator=integrator, spp=1, seed=0)
     mi.util.write_bitmap("out/nerad.png", nerad)

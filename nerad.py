@@ -428,6 +428,7 @@ class NeradIntegrator(mi.SamplingIntegrator):
 # tqdm_iterator = tqdm(range(total_steps))
 
 if __name__ == "__main__":
+    torch.manual_seed(0)
     scene = mi.load_file("./data/scenes/cornell-box-specular/scene.xml")
     # scene = mi.load_file("./data/scenes/caustics/scene.xml")
     # scene = mi.load_file("./data/scenes/veach-door/scene.xml")
