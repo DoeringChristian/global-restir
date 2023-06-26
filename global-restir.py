@@ -375,7 +375,6 @@ if __name__ == "__main__":
     scene["sensor"]["film"]["rfilter"] = mi.load_dict({"type": "box"})
     scene = mi.load_dict(scene)  # type: mi.Scene
     # scene = mi.load_file("./data/scenes/living-room-3/scene.xml")
-    # scene = mi.load_file("./data/scenes/staircase/scene.xml")
 
     integrator = GReSTIRIntegrator()
     print("Creating Reservoir:")
