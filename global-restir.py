@@ -71,7 +71,7 @@ class RestirReservoir:
 class GReSTIRIntegrator(mi.SamplingIntegrator):
     search_radius = 0.1
     angle_threshold = 25 * dr.pi / 180
-    temporal_M_max = 500
+    temporal_M_max = 50
 
     def __init__(self):
         self.max_depth = 8
@@ -82,6 +82,7 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
     def similar(self, s1: RestirSample, s2: RestirSample) -> mi.Bool:
         similar = mi.Bool(True)
         similar &= dr.dot(s1.n0, s2.n0) > dr.cos(self.angle_threshold)
+        similar &= dr.norm(s1.x0 - s2.x0) <= self.search_radius
 
         return similar
 
@@ -106,7 +107,7 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
         self.reservoirs = dr.zeros(RestirReservoir, n)  # type: RestirReservoir
         self.reservoirs.z.x0 = ps.p
         self.reservoirs.z.n0 = ps.n
-        self.grid = HashGrid(ps.p, 100, n)
+        self.grid = HashGrid(ps.p, 20, n)
         self.n_reservoirs = n
 
     def sample_ray(
