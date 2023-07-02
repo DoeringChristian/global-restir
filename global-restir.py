@@ -107,8 +107,46 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
         self.reservoirs = dr.zeros(RestirReservoir, n)  # type: RestirReservoir
         self.reservoirs.z.x0 = ps.p
         self.reservoirs.z.n0 = ps.n
-        self.grid = HashGrid(ps.p, 20, n)
+        self.grid = HashGrid(
+            ps.p, 100, n
+        )  # search radius has to be at least two times the cell width
         self.n_reservoirs = n
+
+    def first_non_specular(
+        self,
+        scene: mi.Scene,
+        si: mi.SurfaceInteraction3f,
+        sampler: mi.Sampler,
+        active: mi.Bool,
+    ) -> tuple[mi.SurfaceInteraction3f, mi.Color3f]:
+        max_iterations = 6
+
+        bsdf_ctx = mi.BSDFContext()
+        β = mi.Color3f(1)
+        depth = mi.UInt(0)
+        active = mi.Bool(active)
+
+        loop = mi.Loop("first_non_specular", lambda: (depth, active, β, sampler, si))
+
+        while loop(active):
+            bsdf: mi.BSDF = si.bsdf()
+
+            bsdf_sample, bsdf_weight = bsdf.sample(
+                bsdf_ctx, si, sampler.next_1d(), sampler.next_2d(), active
+            )
+
+            active &= si.is_valid() & (depth < max_iterations)
+            active &= ~mi.has_flag(bsdf_sample.sampled_type, mi.BSDFFlags.Smooth)
+
+            ray = si.spawn_ray(si.to_world(bsdf_sample.wo))
+
+            si[active] = scene.ray_intersect(
+                ray, ray_flags=mi.RayFlags.All, coherent=False, active=active
+            )
+            β[active] *= bsdf_weight
+            depth += 1
+
+        return si, β
 
     def sample_ray(
         self,
@@ -321,7 +359,9 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
 
         Rnew = dr.zeros(RestirReservoir)  # type: RestirReservoir
 
-        si = scene.ray_intersect(ray)  # type: mi.SurfaceInteraction3f
+        si = scene.ray_intersect(ray, active)  # type: mi.SurfaceInteraction3f
+        si, β = self.first_non_specular(scene, si, sampler, active)
+
         S = dr.zeros(RestirSample)  # type: RestirSample
         S.x0 = si.p
         S.n0 = si.n
@@ -359,7 +399,10 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
         # Final sampling
 
         bsdf = si.bsdf()  # type: mi.BSDF
-        β = bsdf.eval(mi.BSDFContext(), si, si.to_local(dr.normalize(Rnew.z.x1 - si.p)))
+        β = (
+            bsdf.eval(mi.BSDFContext(), si, si.to_local(dr.normalize(Rnew.z.x1 - si.p)))
+            * β
+        )
         emittance = si.emitter(scene).eval(si)
 
         result = Rnew.W * Rnew.z.Li * β + emittance
@@ -373,7 +416,8 @@ if __name__ == "__main__":
     scene["sensor"]["film"]["height"] = 1024
     # scene["sensor"]["film"]["rfilter"] = mi.load_dict({"type": "box"})
     scene = mi.load_dict(scene)  # type: mi.Scene
-    # scene = mi.load_file("./data/scenes/living-room-3/scene.xml")
+    scene = mi.load_file("./data/scenes/living-room-3/scene.xml")
+    scene = mi.load_file("./data/scenes/cornell-box-specular/scene.xml")
 
     integrator = GReSTIRIntegrator()
     print("Creating Reservoir:")
