@@ -327,11 +327,9 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
         S.n0 = si.n
 
         for i in range(10):
-            # offset = mi.warp.square_to_uniform_disk(sampler.next_1d()) * 0.1
             offset = (
                 mi.warp.square_to_uniform_disk(sampler.next_2d()) * self.search_radius
             )
-            # offset = mi.warp.square_to_tent(sampler.next_2d()) * 0.01
             p = si.p + si.to_world(mi.Point3f(offset.x, offset.y, 0))
 
             cell = self.grid.cell_idx(p)
@@ -373,7 +371,7 @@ if __name__ == "__main__":
     scene = mi.cornell_box()
     scene["sensor"]["film"]["width"] = 1024
     scene["sensor"]["film"]["height"] = 1024
-    scene["sensor"]["film"]["rfilter"] = mi.load_dict({"type": "box"})
+    # scene["sensor"]["film"]["rfilter"] = mi.load_dict({"type": "box"})
     scene = mi.load_dict(scene)  # type: mi.Scene
     # scene = mi.load_file("./data/scenes/living-room-3/scene.xml")
 
