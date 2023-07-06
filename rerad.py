@@ -72,6 +72,7 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
     search_radius = 0.1
     angle_threshold = 25 * dr.pi / 180
     temporal_M_max = 10
+    temporal_samples = 1_000_000
 
     def __init__(self):
         self.max_depth = 8
@@ -319,7 +320,7 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
 
     def temporal_resampling(self, scene: mi.Scene):
         sampler = mi.load_dict({"type": "independent"})  # type: mi.Sampler
-        sampler.seed(self.n, self.n_reservoirs * 2)
+        sampler.seed(self.n, self.temporal_samples)
 
         new_sample = self.generate_sample(scene, sampler)
 
@@ -426,11 +427,12 @@ if __name__ == "__main__":
     scene = mi.load_dict(scene)  # type: mi.Scene
     scene = mi.load_file("./data/scenes/living-room-3/scene.xml")
     # scene = mi.load_file("./data/scenes/cornell-box-specular/scene.xml")
-    # scene = mi.load_file("./data/scenes/veach-ajar/scene.xml")
+    scene = mi.load_file("./data/scenes/veach-ajar/scene.xml")
 
     integrator = GReSTIRIntegrator()
     print("Creating Reservoir:")
-    integrator.create_reservoirs(scene, 1_000_000)
+    integrator.create_reservoirs(scene, 10_000_000)
+    integrator.temporal_samples = 10_000_000
     # integrator.create_reservoirs((0.01, 0.01))
 
     print("Rendering Images:")
