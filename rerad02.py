@@ -13,6 +13,20 @@ if __name__ == "__main__":
 from hashgrid import HashGrid
 
 
+def J(receiver_pos: mi.Vector3f, neighbor_res: "RestirSample") -> mi.Float:
+    v_new = receiver_pos - neighbor_res.x1
+    d_new = dr.norm(v_new)
+    cos_new = dr.clamp(dr.dot(v_new, neighbor_res.n1) / d_new, 0, 1)
+
+    v_old = neighbor_res.x0 - neighbor_res.x1
+    d_old = dr.norm(v_old)
+    cos_old = dr.clamp(dr.dot(v_old, neighbor_res.n1) / d_old, 0, 1)
+
+    div = cos_old * dr.sqr(d_new)
+    jacobian = dr.select(div > 0, cos_new * dr.sqr(d_old) / div, 0)
+    return jacobian
+
+
 def mis_weight(pdf_a: mi.Float, pdf_b: mi.Float) -> mi.Float:
     """
     Compute the Multiple Importance Sampling (MIS) weight given the densities
@@ -31,6 +45,7 @@ class RestirSample:
     Li: mi.Vector3f
     x0: mi.Point3f
     n0: mi.Vector3f
+    n1: mi.Vector3f
     x1: mi.Point3f
     pq: mi.Float
 
@@ -315,6 +330,7 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
         sample.x0 = si.p
         sample.x1 = si1.p
         sample.n0 = si.n
+        sample.n1 = si1.n
         return sample
 
     def temporal_resampling(self, scene: mi.Scene):
@@ -334,11 +350,13 @@ class GReSTIRIntegrator(mi.SamplingIntegrator):
         )  # type: RestirReservoir
 
         Rnew = dr.zeros(RestirReservoir)  # type: RestirReservoir
-        w = dr.select(new_sample.pq > 0, p_hat(new_sample.Li) / new_sample.pq, 0.0)
-        Rnew.update(sampler, new_sample, w)
 
         similar = self.similar(R.z, new_sample)
         Rnew.merge(sampler, R, p_hat(R.z.Li), similar)
+
+        phat = p_hat(new_sample.Li) * J(Rnew.z.x0, new_sample)
+        w = dr.select(new_sample.pq > 0, phat / new_sample.pq, 0.0)
+        Rnew.update(sampler, new_sample, w)
 
         Rnew.z.x0 = R.z.x0
         Rnew.z.n0 = R.z.n0
@@ -425,8 +443,7 @@ if __name__ == "__main__":
     # scene["sensor"]["film"]["rfilter"] = mi.load_dict({"type": "box"})
     scene = mi.load_dict(scene)  # type: mi.Scene
     scene = mi.load_file("./data/scenes/living-room-3/scene.xml")
-    # scene = mi.load_file("./data/scenes/cornell-box-specular/scene.xml")
-    # scene = mi.load_file("./data/scenes/veach-ajar/scene.xml")
+    scene = mi.load_file("./data/scenes/cornell-box-specular/scene.xml")
 
     integrator = GReSTIRIntegrator()
     print("Creating Reservoir:")
@@ -436,7 +453,7 @@ if __name__ == "__main__":
     print("Rendering Images:")
     for i in range(200):
         integrator.temporal_resampling(scene)
-        img = mi.render(scene, integrator=integrator, spp=8, seed=i)
+        img = mi.render(scene, integrator=integrator, spp=4, seed=i)
         mi.util.write_bitmap(f"out/{i}.png", img)
     # plt.imshow(mi.util.convert_to_bitmap(img))
     # plt.show()
